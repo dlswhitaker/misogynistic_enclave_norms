@@ -81,8 +81,8 @@ agentgenerate<- function(popsize,groupnum){
   #****are these small values right?****
   h <- rbeta(popsize,1,10, ncp = 0)
   
-  #Make data frame
-  agents<- data.frame(group,h)
+  #Make data frame to store agents' group, h value, and most recent behavior
+  agents<- data.frame(group, h, "behavior" = 0)
   
   return(agents)
 }
@@ -90,24 +90,59 @@ agentgenerate<- function(popsize,groupnum){
 
 ######Model Start######
 
-#####Agents####
+#####Agents#####
 #Generate agents
 agents <- agentgenerate(popsize, groupnum)
 
 #Store agents' initial groups 
-initialgroups <- agents$group
+agents$initialgroups <- agents$group
 
-#Beta distribution storage
-#***matrix for mean and matrix for variance?
-#Create a blank matrix to store agents' means for the beta distributions of each group's norms
-betameans <- matrix()
-#Create a blank matrix to store agents' variance for the beta distributions of each group's norms
-betavar <- 
+#Set initial beta distributions of mean = 0 and variance = 1 (normal distribution)
+
+#Create a matrix to store agents' means (initially 0) for the beta distributions of each group's norms
+betameans <- matrix(data = 0, nrow = popsize, ncol = groupnum)
+
+#Create a matrix to store agents' variance (initially 1) for the beta distributions of each group's norms
+betavar <- matrix(data = 1, nrow = popsize, ncol = groupnum)
+
+#***is there a more efficient/better way to do this?^
+
+#Create a blank data frame to store the sums of behavior types in groups
+gbehave <- data.frame ((matrix(data = 0, nrow = groupnum, ncol = 3)))
+colnames(gbehave) <- c("harass", "intervene", "retaliate")
+
+#####Life Cycle#####
+
+####Behave####
+#For every group...
+for(g in groupnum){
+  #make a list of group members... 
+  groupmem <- which(agents$group==g)
+  #and generate the behavior of every agent in the group:
+  for(a in groupmem){
+ 
+ ##Harass
+    
+    #If a random value is less than or equal to the focal agent's h-value... 
+    randval<- runif(1, min=0, max=1)
+    
+    #the agent's behavior is changed to a value of 1 to represent perpetration of harassment
+    if(randval<= agents[a,"h"]){
+      agents[a,"behavior"] <- 1
+      
+      #and the total harassment incidents in the group during this round of behavior is increased by 1...
+      gbehave[g,"harass"] <- gbehave[g,"harass"] + 1
+      
+      #and all other agents in the group are given the opportunity to intervene.
+      
+      ##Intervene
+      
+    }
+  }
   
-  
-  
-  
-  
-  
-  
-  
+}
+
+
+####scratch paper - ignore this####
+agents[2,1]
+
