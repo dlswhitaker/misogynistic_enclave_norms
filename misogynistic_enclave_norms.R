@@ -61,34 +61,44 @@
 ######Packages######
 
 ######Parameters######
-#number of agents
-popsize <- 2000
-
 #number of groups
-groupnum <- 50
+groupnum <- 5
+
+#agents per group
+groupsize <- 4
+
+#number of agents
+popsize <- (groupnum*groupsize)
 
 #number of oppotunities to move groups 
 rounds <- 10
+
 
 ######Functions######
 
 #Agent Generation
 agentgenerate<- function(popsize,groupnum){
+  #assign each agent a PIN
+  PIN <- sample(1:popsize)
+  
   #assign each agent a  group 
-  group <- sample(c(1:groupnum),popsize,replace = T)
+  group <- sample(rep(1:groupnum, groupsize))
   
   #assign each agent a random H-value using a beta distribution with alpha & beta parameters 10
-  #****are these small values right?****
-  h <- rbeta(popsize,1,10, ncp = 0)
+  #****do these shape1&2 give us h values normally distributed between 0 and 1****
+  h <- rbeta(popsize,10,10, ncp = 0)
   
   #Make data frame to store agents' group, h value, and most recent behavior
-  agents<- data.frame(group, h, "behavior" = 0)
+  agents<- data.frame(PIN, group, h, "behavior" = 0)
   
   return(agents)
 }
 
+#check how many agents are in each group
+#n<-tapply(agents$PIN,agents$group,function(x) length(x))
 
 ######Model Start######
+
 
 #####Agents#####
 #Generate agents
@@ -97,15 +107,10 @@ agents <- agentgenerate(popsize, groupnum)
 #Store agents' initial groups 
 agents$initialgroups <- agents$group
 
-#Set initial beta distributions of mean = 0 and variance = 1 (normal distribution)
+#Set initial beta distributions of mean = x and variance = x ***need to start w/ flat dist
 
-#Create a matrix to store agents' means (initially 0) for the beta distributions of each group's norms
-betameans <- matrix(data = 0, nrow = popsize, ncol = groupnum)
-
-#Create a matrix to store agents' variance (initially 1) for the beta distributions of each group's norms
-betavar <- matrix(data = 1, nrow = popsize, ncol = groupnum)
-
-#***is there a more efficient/better way to do this?^
+#Create a matrix to store agents' means and variance for the beta distributions of each group's norms
+betamatrix <-  list(matrix(data = NA, nrow = popsize, ncol = groupnum),matrix(data = NA, nrow = popsize, ncol = groupnum))
 
 #Create a blank data frame to store the sums of behavior types in groups
 gbehave <- data.frame ((matrix(data = 0, nrow = groupnum, ncol = 3)))
