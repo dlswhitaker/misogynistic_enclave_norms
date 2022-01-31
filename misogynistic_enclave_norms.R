@@ -85,11 +85,13 @@ agentgenerate<- function(popsize,groupnum){
   group <- sample(rep(1:groupnum, groupsize))
   
   #assign each agent a random H-value using a beta distribution with alpha & beta parameters 10
-  #****do these shape1&2 give us h values normally distributed between 0 and 1****
-  h <- rbeta(popsize,10,10, ncp = 0)
+  h<-rnorm(popsize,0,1)
+  h<-h+abs(min(h))
+  h<-h/max(h)
+           
   
   #Make data frame to store agents' group, h value, and most recent behavior
-  agents<- data.frame(PIN, group, h, "behavior" = 0)
+  agents<- data.frame(PIN, group, h, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
   
   return(agents)
 }
@@ -110,11 +112,7 @@ agents$initialgroups <- agents$group
 #Set initial beta distributions of mean = x and variance = x ***need to start w/ flat dist
 
 #Create a matrix to store agents' means and variance for the beta distributions of each group's norms
-betamatrix <-  list(matrix(data = NA, nrow = popsize, ncol = groupnum),matrix(data = NA, nrow = popsize, ncol = groupnum))
-
-#Create a blank data frame to store the sums of behavior types in groups
-gbehave <- data.frame ((matrix(data = 0, nrow = groupnum, ncol = 3)))
-colnames(gbehave) <- c("harass", "intervene", "retaliate")
+distmatrix <-  list(matrix(data = NA, nrow = popsize, ncol = groupnum),matrix(data = NA, nrow = popsize, ncol = groupnum))
 
 #####Life Cycle#####
 
@@ -124,9 +122,65 @@ for(g in groupnum){
   #make a list of group members... 
   groupmem <- which(agents$group==g)
   #and generate the behavior of every agent in the group:
+
+  ##Harass  
   for(a in groupmem){
+    
+    #If a random value is less than or equal to the focal agent's h-value... 
+    randval<- runif(1, min=0, max=1)
+    
+    #the agent's harass number is changed to a value of 1 to represent perpetration of harassment
+    if(randval<= agents[a,"h"]){
+      agents[a,"harass"] <- 1
+      
+      }
+  }
  
- ##Harass
+  #Make a vector of agents in the group who harassed
+  harassers <- which(agents$group==2 & agents$harass==1)
+  #*does it make it more efficient to add an if harassers>0 loop?
+  
+  ##Intervene
+  for(a in groupmem){
+    
+    #If the sum of harassers minus the value of self > 0, the focal agent may intervene...
+    if((length(harassers)- agents[a, "harass"])>0){
+     
+      #If a random value is less than or equal to 1 minus the focal agent's h-value... 
+      randval<- runif(1, min=0, max=1)
+      
+      #the agent's intervene number is changed to a value of 1 to represent intervention
+      if(randval<= (1- agents[a,"h"])){
+        
+        agents[a,"intervene"] <- 1
+        
+      }
+    }
+  }
+  
+  #Reset the vector of harassers
+  harassers <- NA
+  
+  #Make a vector of agents in the group who intervened
+  interveners <- which(agents$group==g & agents$intervene==1)
+  
+  
+}
+ 
+#remember to reset harassers etc. after every group
+
+####scratch paper - ignore this####
+agents[2,1]
+
+####Behave####
+#For every group...
+for(g in groupnum){
+  #make a list of group members... 
+  groupmem <- which(agents$group==g)
+  #and generate the behavior of every agent in the group:
+  for(a in groupmem){
+    
+    ##Harass
     
     #If a random value is less than or equal to the focal agent's h-value... 
     randval<- runif(1, min=0, max=1)
@@ -138,16 +192,16 @@ for(g in groupnum){
       #and the total harassment incidents in the group during this round of behavior is increased by 1...
       gbehave[g,"harass"] <- gbehave[g,"harass"] + 1
       
-      #and all other agents in the group are given the opportunity to intervene.
-      
-      ##Intervene
-      
     }
+    ##Intervene
+    
   }
   
 }
 
+#Create a blank data frame to store the sums of behavior types in groups *should be replaced by behavior columns in agents*
+gbehave <- data.frame ((matrix(data = 0, nrow = groupnum, ncol = 3)))
+colnames(gbehave) <- c("harass", "intervene", "retaliate")
 
-####scratch paper - ignore this####
-agents[2,1]
-
+#and the total harassment incidents in the group during this round of behavior is increased by 1...
+gbehave[g,"harass"] <- gbehave[g,"harass"] + 1
