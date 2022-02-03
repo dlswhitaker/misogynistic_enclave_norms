@@ -114,6 +114,9 @@ agents$initialgroups <- agents$group
 #Create a matrix to store agents' means and variance for the beta distributions of each group's norms
 distmatrix <-  list(matrix(data = NA, nrow = popsize, ncol = groupnum),matrix(data = NA, nrow = popsize, ncol = groupnum))
 
+#Create a blank data frame to store the overall behavior of agents in each group
+gbehave <- data.frame(1:groupnum, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
 #####Life Cycle#####
 
 ####Behave####
@@ -133,12 +136,14 @@ for(g in groupnum){
     if(randval<= agents[a,"h"]){
       agents[a,"harass"] <- 1
       
+      #and the sum of harassers in the focal group is increased by 1
+      gbehave[g,"harass"] <- gbehave[g,"harass"] + 1 
+      
       }
   }
  
   #Make a vector of agents in the group who harassed
   harassers <- which(agents$group==2 & agents$harass==1)
-  #*does it make it more efficient to add an if harassers>0 loop?
   
   ##Intervene
   for(a in groupmem){
@@ -151,8 +156,10 @@ for(g in groupnum){
       
       #the agent's intervene number is changed to a value of 1 to represent intervention
       if(randval<= (1- agents[a,"h"])){
-        
         agents[a,"intervene"] <- 1
+        
+        #and the sum of interveners in the focal group is increased by 1
+        gbehave[g,"intervene"] <- gbehave[g,"intervene"] + 1 
         
       }
     }
@@ -164,10 +171,44 @@ for(g in groupnum){
   #Make a vector of agents in the group who intervened
   interveners <- which(agents$group==g & agents$intervene==1)
   
+  ##Intervene
+  for(a in groupmem){
+    
+    #If the sum of interveners minus the value of self > 0, the focal agent may retaliate...
+    if((length(interveners)- agents[a, "intervene"])>0){
+      
+      #If a random value is less than or equal to the focal agent's h-value... 
+      randval<- runif(1, min=0, max=1)
+      
+      #the agent's retaliate number is changed to a value of 1 to represent retaliation
+      if(randval<= (agents[a,"h"])){
+        agents[a,"retaliate"] <- 1
+        
+        #and the sum of retaliators in the focal group is increased by 1
+        gbehave[g,"retaliate"] <- gbehave[g,"retaliate"] + 1 
+        
+      }
+    }
+  }
   
+  #Reset the vector of interveners
+  interveners <- NA
 }
  
-#remember to reset harassers etc. after every group
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ####scratch paper - ignore this####
 agents[2,1]
