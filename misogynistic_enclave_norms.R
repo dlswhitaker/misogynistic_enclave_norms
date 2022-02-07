@@ -84,7 +84,7 @@ agentgenerate<- function(popsize,groupnum){
   #assign each agent a  group 
   group <- sample(rep(1:groupnum, groupsize))
   
-  #assign each agent a random H-value using a beta distribution with alpha & beta parameters 10
+  #assign each agent a random H-value between 0 and 1using a normal distribution
   h<-rnorm(popsize,0,1)
   h<-h+abs(min(h))
   h<-h/max(h)
@@ -101,7 +101,6 @@ agentgenerate<- function(popsize,groupnum){
 
 ######Model Start######
 
-
 #####Agents#####
 #Generate agents
 agents <- agentgenerate(popsize, groupnum)
@@ -109,10 +108,9 @@ agents <- agentgenerate(popsize, groupnum)
 #Store agents' initial groups 
 agents$initialgroups <- agents$group
 
-#Set initial beta distributions of mean = x and variance = x ***need to start w/ flat dist
-
-#Create a matrix to store agents' means and variance for the beta distributions of each group's norms
-distmatrix <-  list(matrix(data = NA, nrow = popsize, ncol = groupnum),matrix(data = NA, nrow = popsize, ncol = groupnum))
+#Create a matrix to store agents' alpha [[1]] and beta [[2]] values for the beta distributions of each group's norms 
+#With initial beta distributions of alpha = 1 and beta = 1 (flat)
+distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
 
 #Create a blank data frame to store the overall behavior of agents in each group
 gbehave <- data.frame(1:groupnum, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
@@ -124,6 +122,7 @@ gbehave <- data.frame(1:groupnum, "harass" = 0, "intervene" = 0,"retaliate" = 0 
 for(g in groupnum){
   #make a list of group members... 
   groupmem <- which(agents$group==g)
+  
   #and generate the behavior of every agent in the group:
 
   ##Harass  
@@ -195,19 +194,43 @@ for(g in groupnum){
   interveners <- NA
 }
  
+####Observe####
+
+#If the focal agent harassed...
+  if(agents[a,"harass"]==1){
+    
+    #set their Beta = Beta + # of agents who intervened
+    distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"intervene"])
+    
+    #and set their Alpha = Alpha + # of agents who did not intervene
+    distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"intervene"]))
+    
+  }
+ 
+#If the focal agent intervened...
+if(agents[a,"intervene"]==1){
+  
+  #set their Beta = Beta + # of agents who retaliated
+  distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"retaliate"])
+  
+  #and set their Alpha = Alpha + # of agents who did not retaliate
+  distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"retaliate"]))
+  
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
+####Move####
+#Every agent draws a random sample from their beta distributions for each group. 
+for(p in agents){
+  
+  betavector <- c(0,1,2)#***placeholder vector*** calculate the beta dist & draw a random value from it
+  
+  #The focal agent will move to the group from which the highest value is selected. 
+  #(This represents the greatest likelihood of not being targeted in the group.)
+  agents[p,"group"] <- max(betavector)
+  
+  #The agent will behave in and observe this group during the next round of the model.
+}
 
 
 ####scratch paper - ignore this####
