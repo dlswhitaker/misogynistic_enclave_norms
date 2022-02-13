@@ -70,7 +70,7 @@ groupsize <- 4
 #number of agents
 popsize <- (groupnum*groupsize)
 
-#number of oppotunities to move groups 
+#number of opportunities to move groups 
 rounds <- 10
 
 
@@ -115,157 +115,140 @@ distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(dat
 #Create a blank data frame to store the overall behavior of agents in each group
 gbehave <- data.frame(1:groupnum, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
 
+#Create a blank data frame to store the beta values drawn by agents for each group
+betaframe <- data.frame(1:groupnum, data = NA)
+
 #####Life Cycle#####
 
-####Behave####
-#For every group...
-for(g in groupnum){
-  #make a list of group members... 
-  groupmem <- which(agents$group==g)
-  
-  #and generate the behavior of every agent in the group:
-
-  ##Harass  
-  for(a in groupmem){
+#For however many rounds...
+for(r in 1:rounds){
+  #For every group...
+  for(g in 1:groupnum){
     
-    #If a random value is less than or equal to the focal agent's h-value... 
-    randval<- runif(1, min=0, max=1)
+    ####Behave####
+    #make a list of group members... 
+    groupmem <- which(agents$group==g)
     
-    #the agent's harass number is changed to a value of 1 to represent perpetration of harassment
-    if(randval<= agents[a,"h"]){
-      agents[a,"harass"] <- 1
-      
-      #and the sum of harassers in the focal group is increased by 1
-      gbehave[g,"harass"] <- gbehave[g,"harass"] + 1 
-      
-      }
-  }
- 
-  #Make a vector of agents in the group who harassed
-  harassers <- which(agents$group==2 & agents$harass==1)
-  
-  ##Intervene
-  for(a in groupmem){
+    #and generate the behavior of every agent in the group:
     
-    #If the sum of harassers minus the value of self > 0, the focal agent may intervene...
-    if((length(harassers)- agents[a, "harass"])>0){
-     
-      #If a random value is less than or equal to 1 minus the focal agent's h-value... 
-      randval<- runif(1, min=0, max=1)
-      
-      #the agent's intervene number is changed to a value of 1 to represent intervention
-      if(randval<= (1- agents[a,"h"])){
-        agents[a,"intervene"] <- 1
-        
-        #and the sum of interveners in the focal group is increased by 1
-        gbehave[g,"intervene"] <- gbehave[g,"intervene"] + 1 
-        
-      }
-    }
-  }
-  
-  #Reset the vector of harassers
-  harassers <- NA
-  
-  #Make a vector of agents in the group who intervened
-  interveners <- which(agents$group==g & agents$intervene==1)
-  
-  ##Intervene
-  for(a in groupmem){
-    
-    #If the sum of interveners minus the value of self > 0, the focal agent may retaliate...
-    if((length(interveners)- agents[a, "intervene"])>0){
+    ##Harass  
+    for(a in groupmem){
       
       #If a random value is less than or equal to the focal agent's h-value... 
       randval<- runif(1, min=0, max=1)
       
-      #the agent's retaliate number is changed to a value of 1 to represent retaliation
-      if(randval<= (agents[a,"h"])){
-        agents[a,"retaliate"] <- 1
+      #the agent's harass number is changed to a value of 1 to represent perpetration of harassment
+      if(randval<= agents[a,"h"]){
+        agents[a,"harass"] <- 1
         
-        #and the sum of retaliators in the focal group is increased by 1
-        gbehave[g,"retaliate"] <- gbehave[g,"retaliate"] + 1 
+        #and the sum of harassers in the focal group is increased by 1
+        gbehave[g,"harass"] <- gbehave[g,"harass"] + 1 
         
       }
     }
-  }
-  
-  #Reset the vector of interveners
-  interveners <- NA
-}
- 
-####Observe####
-
-#If the focal agent harassed...
-  if(agents[a,"harass"]==1){
     
-    #set their Beta = Beta + # of agents who intervened
-    distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"intervene"])
+    #Make a vector of agents in the group who harassed
+    harassers <- which(agents$group==2 & agents$harass==1)
     
-    #and set their Alpha = Alpha + # of agents who did not intervene
-    distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"intervene"]))
-    
-  }
- 
-#If the focal agent intervened...
-if(agents[a,"intervene"]==1){
-  
-  #set their Beta = Beta + # of agents who retaliated
-  distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"retaliate"])
-  
-  #and set their Alpha = Alpha + # of agents who did not retaliate
-  distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"retaliate"]))
-  
-}
-
-
-####Move####
-#Every agent draws a random sample from their beta distributions for each group. 
-for(p in agents){
-  
-  betavector <- c(0,1,2)#***placeholder vector*** calculate the beta dist & draw a random value from it
-  
-  #The focal agent will move to the group from which the highest value is selected. 
-  #(This represents the greatest likelihood of not being targeted in the group.)
-  agents[p,"group"] <- max(betavector)
-  
-  #The agent will behave in and observe this group during the next round of the model.
-}
-
-
-####scratch paper - ignore this####
-agents[2,1]
-
-####Behave####
-#For every group...
-for(g in groupnum){
-  #make a list of group members... 
-  groupmem <- which(agents$group==g)
-  #and generate the behavior of every agent in the group:
-  for(a in groupmem){
-    
-    ##Harass
-    
-    #If a random value is less than or equal to the focal agent's h-value... 
-    randval<- runif(1, min=0, max=1)
-    
-    #the agent's behavior is changed to a value of 1 to represent perpetration of harassment
-    if(randval<= agents[a,"h"]){
-      agents[a,"behavior"] <- 1
+    ##Intervene
+    for(a in groupmem){
       
-      #and the total harassment incidents in the group during this round of behavior is increased by 1...
-      gbehave[g,"harass"] <- gbehave[g,"harass"] + 1
+      #If the sum of harassers minus the value of self > 0, the focal agent may intervene...
+      if((length(harassers)- agents[a, "harass"])>0){
+        
+        #If a random value is less than or equal to 1 minus the focal agent's h-value... 
+        randval<- runif(1, min=0, max=1)
+        
+        #the agent's intervene number is changed to a value of 1 to represent intervention
+        if(randval<= (1- agents[a,"h"])){
+          agents[a,"intervene"] <- 1
+          
+          #and the sum of interveners in the focal group is increased by 1
+          gbehave[g,"intervene"] <- gbehave[g,"intervene"] + 1 
+          
+        }
+      }
+    }
+    
+    #Reset the vector of harassers
+    harassers <- NA
+    
+    #Make a vector of agents in the group who intervened
+    interveners <- which(agents$group==g & agents$intervene==1)
+    
+    ##Retaliate
+    for(a in groupmem){
+      
+      #If the sum of interveners minus the value of self > 0, the focal agent may retaliate...
+      if((length(interveners)- agents[a, "intervene"])>0){
+        
+        #If a random value is less than or equal to the focal agent's h-value... 
+        randval<- runif(1, min=0, max=1)
+        
+        #the agent's retaliate number is changed to a value of 1 to represent retaliation
+        if(randval<= (agents[a,"h"])){
+          agents[a,"retaliate"] <- 1
+          
+          #and the sum of retaliators in the focal group is increased by 1
+          gbehave[g,"retaliate"] <- gbehave[g,"retaliate"] + 1 
+          
+        }
+      }
+    }
+    
+    #Reset the vector of interveners
+    interveners <- NA
+    
+    ####Observe####
+    
+    for(a in groupmem){
+      
+      #If the focal agent harassed...
+      if(agents[a,"harass"]==1){
+        
+        #set their Beta = Beta + # of agents who intervened
+        distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"intervene"])
+        
+        #and set their Alpha = Alpha + # of agents who did not intervene
+        distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"intervene"]))
+        
+      }
+      
+      #If the focal agent intervened...
+      if(agents[a,"intervene"]==1){
+        
+        #set their Beta = Beta + # of agents who retaliated
+        distmatrix[[2]][a,g] <- (distmatrix[[2]][a,g] + gbehave[g,"retaliate"])
+        
+        #and set their Alpha = Alpha + # of agents who did not retaliate
+        distmatrix[[1]][a,g] <- (distmatrix[[1]][a,g] + (groupsize - gbehave[g,"retaliate"]))
+        
+      }
+      
+      #Reset the agents' behaviors for the next round
+      agents[4:6] <- 0
+    } 
+    
+  }
+  
+  
+  ####Move####
+  
+  #Every agent draws a random sample...  
+  for(a in agents){
+    
+    #from their beta distributions for each group.
+    for(b in 1:groupnum){
+      
+      betaframe[b,2] <- (rbeta(1,distmatrix[[1]][a,b],distmatrix[[2]][a,b]))
       
     }
-    ##Intervene
     
+    #The focal agent will move to the group from which the highest value is selected. 
+    agents[p,"group"] <- which.max(betaframe[,2])
+    
+    #(This represents the greatest likelihood of not being targeted in the group.)
+    #The agent will behave in and observe this group during the next round of the model.
   }
-  
 }
 
-#Create a blank data frame to store the sums of behavior types in groups *should be replaced by behavior columns in agents*
-gbehave <- data.frame ((matrix(data = 0, nrow = groupnum, ncol = 3)))
-colnames(gbehave) <- c("harass", "intervene", "retaliate")
-
-#and the total harassment incidents in the group during this round of behavior is increased by 1...
-gbehave[g,"harass"] <- gbehave[g,"harass"] + 1
