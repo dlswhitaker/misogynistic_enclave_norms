@@ -71,7 +71,7 @@ groupsize <- 4
 popsize <- (groupnum*groupsize)
 
 #number of opportunities to move groups 
-rounds <- 10
+rounds <- 15
 
 
 ######Functions######
@@ -114,9 +114,11 @@ distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(dat
 
 #Create a blank data frame to store the overall behavior of agents in each group
 gbehave <- data.frame(1:groupnum, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+#*X1.groupnum - is this a problem???
 
 #Create a blank data frame to store the beta values drawn by agents for each group
 betaframe <- data.frame(1:groupnum, data = NA)
+#*X1.groupnum - is this a problem???
 
 #####Life Cycle#####
 
@@ -147,6 +149,7 @@ for(r in 1:rounds){
       }
     }
     
+  
     #Make a vector of agents in the group who harassed
     harassers <- which(agents$group==2 & agents$harass==1)
     
@@ -225,8 +228,9 @@ for(r in 1:rounds){
         
       }
       
-      #Reset the agents' behaviors for the next round
+      #Reset the agents' behaviors and clear gbehave for the next round
       agents[4:6] <- 0
+      gbehave[,2:4] <- 0
     } 
     
   }
@@ -235,7 +239,7 @@ for(r in 1:rounds){
   ####Move####
   
   #Every agent draws a random sample...  
-  for(a in agents){
+  for(a in 1:nrow(agents)){
     
     #from their beta distributions for each group.
     for(b in 1:groupnum){
@@ -245,10 +249,9 @@ for(r in 1:rounds){
     }
     
     #The focal agent will move to the group from which the highest value is selected. 
-    agents[p,"group"] <- which.max(betaframe[,2])
+    agents[a,"group"] <- which.max(betaframe[,2])
     
     #(This represents the greatest likelihood of not being targeted in the group.)
     #The agent will behave in and observe this group during the next round of the model.
   }
 }
-
