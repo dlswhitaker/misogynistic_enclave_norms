@@ -59,10 +59,11 @@
 
 
 ######Packages######
+library(ggplot2)
 
 ######Parameters######
 #number of groups
-groupnum <- 10
+groupnum <- 25
 
 #agents per group
 groupsize <- 10
@@ -88,7 +89,7 @@ agentgenerate<- function(popsize,groupnum){
   h<-rnorm(popsize,0,1)
   h<-h+abs(min(h))
   h<-h/max(h)
-           
+  
   
   #Make data frame to store agents' group, h value, and most recent behavior
   agents<- data.frame(PIN, group, h, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
@@ -113,7 +114,10 @@ agents$initialgroups <- agents$group
 distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
 
 #Create a blank data frame to store the overall behavior of agents in each group
-gbehave <- data.frame("harass" = 0, "intervene" = 0,"retaliate" = 0 )
+gbehave <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
+#Create a blank data frame to store the history of agent behavior in each group
+gbehavehist <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
 
 #####Life Cycle#####
 
@@ -133,17 +137,16 @@ for(r in 1:rounds){
       ##Harass  
       for(a in groupmem){
         
-        #If a random value drawn from a normal distribution is less than or equal to the focal agent's h-value... 
+        #If a random value drawn from a normal distribution is less than or equal to the focal agent's h-value...
         #the agent's harass number is changed to a value of 1 to represent perpetration of harassment
         if(rbinom(1,1,agents$h[a])){
           agents$harass[a] <- 1
           
           #and the sum of harassers in the focal group is increased by 1
-          gbehave$harass <- gbehave$harass + 1
+          gbehave$harass <- gbehave$harass + 1 
           
         }
       }
-      
       
       ##Intervene
       for(a in groupmem){
@@ -151,7 +154,6 @@ for(r in 1:rounds){
         #If the sum of harassers minus the value of self > 0, the focal agent may intervene...
         if((gbehave$harass - agents$harass[a])>0){
           
-          #If a random value drawn from a normal distribution is less than or equal to the focal agent's h-value... 
           #the agent's intervene number is changed to a value of 1 to represent intervention
           if(rbinom(1,1,(1-agents$h[a]))){
             agents$intervene[a] <- 1
@@ -163,14 +165,12 @@ for(r in 1:rounds){
         }
       }
       
-     
       ##Retaliate
       for(a in groupmem){
         
         #If the sum of interveners minus the value of self > 0, the focal agent may retaliate...
         if((gbehave$intervene - agents$intervene[a])>0){
           
-          #If a random value drawn from a normal distribution is less than or equal to the focal agent's h-value... 
           #the agent's retaliate number is changed to a value of 1 to represent retaliation
           if(rbinom(1,1,agents$h[a])){
             agents$retaliate[a] <- 1
@@ -182,9 +182,6 @@ for(r in 1:rounds){
         }
       }
       
-      #Reset the vector of interveners
-      interveners <- NA
-      
       ####Observe####
       
       for(a in groupmem){
@@ -193,10 +190,10 @@ for(r in 1:rounds){
         if(agents[a,"harass"]==1){
           
           #set their Beta = Beta + # of agents who intervened
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave[g,"intervene"])
+          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["intervene"])
           
           #and set their Alpha = Alpha + # of agents who did not intervene
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (groupsize - gbehave[g,"intervene"]))
+          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (length(groupmem) - gbehave["intervene"]))
           
         }
         
@@ -204,20 +201,27 @@ for(r in 1:rounds){
         if(agents[a,"intervene"]==1){
           
           #set their Beta = Beta + # of agents who retaliated
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave[g,"retaliate"])
+          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["retaliate"])
           
           #and set their Alpha = Alpha + # of agents who did not retaliate
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (groupsize - gbehave[g,"retaliate"]))
+          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (length(groupmem) - gbehave["retaliate"]))
           
         }
         
-        #Reset the agents' behaviorsfor the next round
-        agents[a, 4:6] <- 0
+        #Reset the agents' behaviors for the next round
+        agents[a,4:6] <- 0
         
       } 
-    
+      
+      #Label gbehave with the focal group number
+      gbehave[,1] <- g
+      
+      #Store agent behavior in gbehavehist
+      gbehavehist <- rbind(gbehavehist,gbehave)
+      
       #Clear gbehave for the next round
-      gbehave[,1:3] <- 0
+      gbehave[,1:4] <- 0
+      
     }
   }
   
@@ -248,7 +252,7 @@ agents$initialgroups<-factor(agents$initialgroups,levels=sort(unique(agents$init
 
 #Plot the h values of group members
 qplot(group,h,fill=as.factor(group),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()+scale_fill_discrete(name="Group")
-ggsave("Run10x10x500.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
+ggsave("25x10x1000.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
 
 #Plot the h values of initial group members
 qplot(initialgroups,h,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()
@@ -275,3 +279,4 @@ initialhvar <- tapply(agents$h,agents$initialgroups,function(x) var(x))
 groups <- factor(agents$group)
 
 #Conduct a pairwise comparison of h levels in each group
+hpairwise <- pairwise.t.test(agents$h, groups, p.adj = "none")
