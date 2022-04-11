@@ -59,6 +59,7 @@
 
 
 ######Packages######
+library(ggplot2)
 
 ######Parameters######
 #number of groups
@@ -71,7 +72,7 @@ groupsize <- 10
 popsize <- (groupnum*groupsize)
 
 #number of opportunities to move groups 
-rounds <- 1000
+rounds <- 100
 
 
 ######Functions######
@@ -108,12 +109,17 @@ agents <- agentgenerate(popsize, groupnum)
 #Store agents' initial groups 
 agents$initialgroups <- agents$group
 
+
 #Create a matrix to store agents' alpha [[1]] and beta [[2]] values for the beta distributions of each group's norms 
 #With initial beta distributions of alpha = 1 and beta = 1 (flat)
 distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
 
 #Create a blank data frame to store the overall behavior of agents in each group
-gbehave <- data.frame("harass" = 0, "intervene" = 0,"retaliate" = 0 )
+gbehave <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
+#Create a blank data frame to store the history of agent behavior in each group
+gbehavehist <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
 
 #####Life Cycle#####
 
@@ -182,9 +188,6 @@ for(r in 1:rounds){
         }
       }
       
-      #Reset the vector of interveners
-      interveners <- NA
-      
       ####Observe####
       
       for(a in groupmem){
@@ -193,10 +196,10 @@ for(r in 1:rounds){
         if(agents[a,"harass"]==1){
           
           #set their Beta = Beta + # of agents who intervened
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave[g,"intervene"])
+          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["intervene"])
           
           #and set their Alpha = Alpha + # of agents who did not intervene
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (groupsize - gbehave[g,"intervene"]))
+          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (length(groupmem) - gbehave["intervene"]))
           
         }
         
@@ -204,20 +207,26 @@ for(r in 1:rounds){
         if(agents[a,"intervene"]==1){
           
           #set their Beta = Beta + # of agents who retaliated
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave[g,"retaliate"])
+          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["retaliate"])
           
           #and set their Alpha = Alpha + # of agents who did not retaliate
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (groupsize - gbehave[g,"retaliate"]))
+          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (groupsize - gbehave["retaliate"]))
           
         }
         
-        #Reset the agents' behaviorsfor the next round
+        #Reset the agents' behaviors for the next round
         agents[a, 4:6] <- 0
         
       } 
     
+      #Label gbehave with the focal group number
+      gbehave[,1] <- g
+      
+      #Store agent behavior in gbehavehist
+      gbehavehist <- rbind(gbehavehist,gbehave)
+      
       #Clear gbehave for the next round
-      gbehave[,1:3] <- 0
+      gbehave[,1:4] <- 0
     }
   }
   
@@ -248,7 +257,7 @@ agents$initialgroups<-factor(agents$initialgroups,levels=sort(unique(agents$init
 
 #Plot the h values of group members
 qplot(group,h,fill=as.factor(group),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()+scale_fill_discrete(name="Group")
-ggsave("Run10x10x500.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
+ggsave("10x10x100.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
 
 #Plot the h values of initial group members
 qplot(initialgroups,h,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()
@@ -275,3 +284,4 @@ initialhvar <- tapply(agents$h,agents$initialgroups,function(x) var(x))
 groups <- factor(agents$group)
 
 #Conduct a pairwise comparison of h levels in each group
+hpairwise <- pairwise.t.test(agents$h, groups, p.adj = "none")
