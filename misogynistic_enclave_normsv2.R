@@ -1,4 +1,4 @@
-######Misogynistic Enclave Norms Model######
+######Misogynistic Enclave Norms Model: Selection######
 ###Purpose: 
 #Simulate the formation of "misogynistic enclaves",concentrated groups of sexual harassment perpetrators,
 #and change in group norms based on agents moving to groups in order to minimize cost of intervention or harassment.
@@ -63,16 +63,16 @@ library(ggplot2)
 
 ######Parameters######
 #number of groups
-groupnum <- 25
+groupnum <- 10
 
 #agents per group
-groupsize <- 10
+groupsize <- 20
 
 #number of agents
 popsize <- (groupnum*groupsize)
 
 #number of opportunities to move groups 
-rounds <- 1000
+rounds <- 100
 
 
 ######Functions######
@@ -111,7 +111,7 @@ agents$initialgroups <- agents$group
 
 #Create a matrix to store agents' alpha [[1]] and beta [[2]] values for the beta distributions of each group's norms 
 #With initial beta distributions of alpha = 1 and beta = 1 (flat)
-distmatrix <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
+betaparams <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
 
 #Create a blank data frame to store the overall behavior of agents in each group
 gbehave <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
@@ -190,10 +190,10 @@ for(r in 1:rounds){
         if(agents[a,"harass"]==1){
           
           #set their Beta = Beta + # of agents who intervened
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["intervene"])
+          betaparams[[2]][a,g] <- as.numeric(betaparams[[2]][a,g] + gbehave["intervene"])
           
           #and set their Alpha = Alpha + # of agents who did not intervene
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (length(groupmem) - gbehave["intervene"]))
+          betaparams[[1]][a,g] <- as.numeric(betaparams[[1]][a,g] + (length(groupmem) - gbehave["intervene"]))
           
         }
         
@@ -201,10 +201,10 @@ for(r in 1:rounds){
         if(agents[a,"intervene"]==1){
           
           #set their Beta = Beta + # of agents who retaliated
-          distmatrix[[2]][a,g] <- as.numeric(distmatrix[[2]][a,g] + gbehave["retaliate"])
+          betaparams[[2]][a,g] <- as.numeric(betaparams[[2]][a,g] + gbehave["retaliate"])
           
           #and set their Alpha = Alpha + # of agents who did not retaliate
-          distmatrix[[1]][a,g] <- as.numeric(distmatrix[[1]][a,g] + (length(groupmem) - gbehave["retaliate"]))
+          betaparams[[1]][a,g] <- as.numeric(betaparams[[1]][a,g] + (length(groupmem) - gbehave["retaliate"]))
           
         }
         
@@ -225,21 +225,23 @@ for(r in 1:rounds){
     }
   }
   
-  
   ####Move####
-  
-  #Every agent draws a random sample...  
-  for(a in 1:nrow(agents)){
+  #Make a vector of agent's new group
+  newgroup <- rep(0,popsize)
+  agentorder <- sample(1:nrow(agents))
+  for(a in agentorder){
     
     #Draw a belief for each group
-    gbeliefs<-rbeta(groupnum,distmatrix[[1]][a,],distmatrix[[2]][a,])
+    gbeliefs <-rbeta(groupnum,betaparams[[1]][a,],betaparams[[2]][a,])
     
-    #The focal agent will move to the group from which the highest value is selected. 
-    agents[a,"group"] <- which.max(gbeliefs)
+    gbeliefs <- gbeliefs *(sapply(1:groupnum, function(x) 
+      sum(newgroup == x)) <= groupsize)
     
-    #(This represents the greatest likelihood of not being targeted in the group.)
-    #The agent will behave in and observe this group during the next round of the model.
+    newgroup[a] <- which.max(gbeliefs)
+    
+    agents$group[a] <- newgroup[a]
   }
+  
 }
 
 
@@ -251,11 +253,12 @@ agents$group<-factor(agents$group,levels=sort(unique(agents$group))[order(tapply
 agents$initialgroups<-factor(agents$initialgroups,levels=sort(unique(agents$initialgroups))[order(tapply(agents$h,agents$initialgroups,mean))])
 
 #Plot the h values of group members
-qplot(group,h,fill=as.factor(group),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()+scale_fill_discrete(name="Group")
-ggsave("25x10x1000.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
+qplot(group,h,fill=as.factor(group),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic(base_size = 15)+scale_fill_discrete(name="Group")+
+  ylim(0,1) + theme(legend.position = "none")
+#ggsave("25x10x1000.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
 
 #Plot the h values of initial group members
-qplot(initialgroups,h,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()
+qplot(initialgroups,h,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic(base_size = 15)+ylim(0,1) + theme(legend.position = "none")
 
 #Calculate overall h value differences between groups
 hanova <- anova(aov(h~as.factor(group),data=agents))
@@ -280,3 +283,14 @@ groups <- factor(agents$group)
 
 #Conduct a pairwise comparison of h levels in each group
 hpairwise <- pairwise.t.test(agents$h, groups, p.adj = "none")
+
+###scratch paper###
+#Set groups as a factor
+gbehavehist$group<-factor(gbehavehist$group,levels=sort(unique(gbehavehist$group))[order(tapply(gbehavehist$harass,gbehavehist$group,mean))])
+
+#Plot the harassment occurrences *does not work*
+qplot(group,harass,fill=as.factor(group),data=gbehavehist,geom="blank",xlab = "Group", ylab = "Harass Occurences") + theme_classic()+scale_fill_discrete(name="Group")
+
+#Plot the h values of initial group members
+qplot(initialgroups,h,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()
+
