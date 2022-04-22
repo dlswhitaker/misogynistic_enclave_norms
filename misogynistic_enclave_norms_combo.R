@@ -1,0 +1,303 @@
+######Misogynistic Enclave Norms Model: Selection & Socialization######
+###Purpose: 
+#Simulate the formation of "misogynistic enclaves",concentrated groups of sexual harassment perpetrators,
+#and change in group norms based on agents moving to groups and changing their behavior in order to minimize cost of intervention or harassment.
+
+#Thompson sampling will be used to determine how agents move and change behavior.
+
+###Agents:
+#2000 agents are randomly assigned to 40 initial groups of agents. 
+#Later versions of the model will test different variations of group numbers and size. 
+#For this reason, the population size, number of groups, and number of agents in each group will each be parameters.
+
+#Each agent has a harassment probability H, which represents their probability of harassing, intervening (1-H) , and retaliating against intervention (H). 
+#An H probability from 0-1 will be assigned to each agent using a beta distribution with alpha & beta parameters 10. 
+#Conceptually, these values represent scores on the Rape Myth Acceptance Scale.  
+
+#Agents also have an initial perception of each group's harassment norms, which will be a beta distribution (mean, standard deviation) that is the same for each group. This distribution will be updated throughout the model as agents observe behavior in their groups. 
+
+###Life cycle:
+
+##Behave: 
+#Harass: Each agent will be given the opportunity to perpetrate harassment. 
+#The likelihood that they do so will be probabilistic, based on their H value.
+
+#Intervene: For every harassing agent, all other agents in that agent's group will be given the opportunity to intervene against the harassing agent. 
+#The likelihood that they do so will be probabilistic, based on 1-H value.
+
+#Retaliate: Finally, all agents in the group aside from any who intervened will have the opportunity to retaliate against the intervening agents. 
+#The likelihood that they do so will be probabilistic, based on their H value.
+
+##Observe: 
+#Agents will observe and store any instance in which they are intervened against or retaliated against by other agents in their group.
+
+#Agents will use these observations to update their perception of norms in the groups. 
+#If an agent is targeted by another agent in the group (i.e. intervened upon when harassing or retaliated against for intervening), this will be considered a failure,  and the observation will be used to update the focal agents' beta distribution for that group. 
+#In that group, the beta distribution will now reflect a lower probability of success.
+#If an agent is not targeted by any other agent in the group (i.e. able to harass without intervention or intervene without retaliation), this will be considered a success, and the observation will be used to update the focal agents' beta distribution for that group.  
+#In that group, the beta distribution will now reflect a higher probability of success. 
+
+##Conform: 
+#Agents will draw a random sample from their beta distribution for their group. 
+#The agent will update their h value to be some fraction of the distance between their own h and the perceived h of the group. 
+#(This is essentially Thompson sampling)
+
+##Move: 
+#Agents will draw a random sample from their beta distributions for each group. 
+#The agent will move to the group from which the highest value (which represents the greatest likelihood of not being targeted in the group) is selected. 
+#They will behave in and observe this group during the next round of the model. 
+#(This is essentially Thompson sampling)
+
+##Repeat:
+#Agents will repeat the life cycle between 1 - 10,000 times. 
+
+### Analysis Plan
+
+##Group norm variation:
+#The change in the distribution of group norms during the course of the model (i.e. are there more extreme groups after the model is run).
+
+##Group similarity:
+#Do groups consist of agents who are more similar to each other after the model is run?
+
+##Rate of harassment, intervention, and retaliation
+#What are the rates of harassment, intervention, and retaliation, respectively, within groups and overall, before and after the model is run?
+
+
+######Packages######
+library(ggplot2)
+
+######Parameters######
+#number of groups
+groupnum <- 10
+
+#agents per group
+groupsize <- 20
+
+#number of agents
+popsize <- (groupnum*groupsize)
+
+#number of opportunities to move groups 
+rounds <- 100
+
+#distance of change in h value
+hchange <- (1/200)
+
+######Functions######
+
+#Agent Generation
+agentgenerate<- function(popsize,groupnum){
+  #assign each agent a PIN
+  PIN <- sample(1:popsize)
+  
+  #assign each agent a  group 
+  group <- sample(rep(1:groupnum, groupsize))
+  
+  #assign each agent a random H-value between 0 and 1using a normal distribution
+  h<-rnorm(popsize,0,1)
+  h<-h+abs(min(h))
+  h<-h/max(h)
+  
+  
+  #Make data frame to store agents' group, h value, and most recent behavior
+  agents<- data.frame(PIN, group, h, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+  
+  return(agents)
+}
+
+#check how many agents are in each group
+#n<-tapply(agents$PIN,agents$group,function(x) length(x))
+
+######Model Start######
+
+#####Agents#####
+#Generate agents
+agents <- agentgenerate(popsize, groupnum)
+
+#Store agents' initial groups 
+agents$initialgroups <- agents$group
+
+#Store agents' initial h vaules 
+agents$initialh <- agents$h
+
+#Create a matrix to store agents' alpha [[1]] and beta [[2]] values for the beta distributions of each group's norms 
+#With initial beta distributions of alpha = 1 and beta = 1 (flat)
+betaparams <-  list(matrix(data = 1, nrow = popsize, ncol = groupnum),matrix(data = 1, nrow = popsize, ncol = groupnum))
+
+#Create a blank data frame to store the overall behavior of agents in each group
+gbehave <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
+#Create a blank data frame to store the history of agent behavior in each group
+gbehavehist <- data.frame("group"= 0, "harass" = 0, "intervene" = 0,"retaliate" = 0 )
+
+#####Life Cycle#####
+
+#For however many rounds...
+for(r in 1:rounds){
+  
+  #For every group...
+  for(g in 1:groupnum){
+    
+    ####Behave####
+    #make a list of group members... 
+    groupmem <- which(agents$group==g)
+    
+    if(length(groupmem)>0){
+      #and generate the behavior of every agent in the group:
+      
+      ##Harass  
+      for(a in groupmem){
+        
+        #If a random value drawn from a normal distribution is less than or equal to the focal agent's h-value...
+        #the agent's harass number is changed to a value of 1 to represent perpetration of harassment
+        if(rbinom(1,1,agents$h[a])){
+          agents$harass[a] <- 1
+          
+          #and the sum of harassers in the focal group is increased by 1
+          gbehave$harass <- gbehave$harass + 1 
+          
+        }
+      }
+      
+      ##Intervene
+      for(a in groupmem){
+        
+        #If the sum of harassers minus the value of self > 0, the focal agent may intervene...
+        if((gbehave$harass - agents$harass[a])>0){
+          
+          #the agent's intervene number is changed to a value of 1 to represent intervention
+          if(rbinom(1,1,(1-agents$h[a]))){
+            agents$intervene[a] <- 1
+            
+            #and the sum of interveners in the focal group is increased by 1
+            gbehave$intervene <- gbehave$intervene + 1 
+            
+          }
+        }
+      }
+      
+      ##Retaliate
+      for(a in groupmem){
+        
+        #If the sum of interveners minus the value of self > 0, the focal agent may retaliate...
+        if((gbehave$intervene - agents$intervene[a])>0){
+          
+          #the agent's retaliate number is changed to a value of 1 to represent retaliation
+          if(rbinom(1,1,agents$h[a])){
+            agents$retaliate[a] <- 1
+            
+            #and the sum of interveners in the focal group is increased by 1
+            gbehave$retaliate <- gbehave$retaliate + 1 
+            
+          }
+        }
+      }
+      
+      ####Observe####
+      
+      for(a in groupmem){
+        
+        #If the focal agent harassed...
+        if(agents[a,"harass"]==1){
+          
+          #set their Beta = Beta + # of agents who intervened
+          betaparams[[2]][a,g] <- as.numeric(betaparams[[2]][a,g] + gbehave["intervene"])
+          
+          #and set their Alpha = Alpha + # of agents who did not intervene
+          betaparams[[1]][a,g] <- as.numeric(betaparams[[1]][a,g] + (length(groupmem) - gbehave["intervene"]))
+          
+        }
+        
+        #If the focal agent intervened...
+        if(agents[a,"intervene"]==1){
+          
+          #set their Beta = Beta + # of agents who retaliated
+          betaparams[[2]][a,g] <- as.numeric(betaparams[[2]][a,g] + gbehave["retaliate"])
+          
+          #and set their Alpha = Alpha + # of agents who did not retaliate
+          betaparams[[1]][a,g] <- as.numeric(betaparams[[1]][a,g] + (length(groupmem) - gbehave["retaliate"]))
+          
+        }
+        
+        #Reset the agents' behaviors for the next round
+        agents[a,4:6] <- 0
+        
+      } 
+      
+      #Label gbehave with the focal group number
+      gbehave[,1] <- g
+      
+      #Store agent behavior in gbehavehist
+      gbehavehist <- rbind(gbehavehist,gbehave)
+      
+      #Draw a belief for their group
+      hbelief <- rbeta(1, as.numeric(gbehave[2]), length(groupmem)-as.numeric(gbehave[2]))
+      
+      #The focal agent will change their h value to be a fraction of the distance between thier current h value and the drawn belief of their group. 
+      agents[a, "h"] <- agents[a, "h"] - (hchange * ((agents[a, "h"]) - hbelief))
+      
+      
+      #Clear gbehave for the next round
+      gbehave[,1:4] <- 0
+      
+    }
+  }
+   
+  ####Move####
+  #Make a vector of agent's new group
+  newgroup <- rep(0,popsize)
+  agentorder <- sample(1:nrow(agents))
+  for(a in agentorder){
+    
+    #Draw a belief for each group
+    gbeliefs <-rbeta(groupnum,betaparams[[1]][a,],betaparams[[2]][a,])
+    
+    gbeliefs <- gbeliefs *(sapply(1:groupnum, function(x) 
+      sum(newgroup == x)) <= groupsize)
+    
+    newgroup[a] <- which.max(gbeliefs)
+    
+    agents$group[a] <- newgroup[a]
+  }
+}
+
+
+####Analysis####
+#*not done*
+
+#Set groups as a factor
+agents$group<-factor(agents$group,levels=sort(unique(agents$group))[order(tapply(agents$h,agents$group,mean))])
+
+agents$initialgroups<-factor(agents$initialgroups,levels=sort(unique(agents$initialgroups))[order(tapply(agents$h,agents$initialgroups,mean))])
+
+#Plot the h values of group members
+qplot(group,h,fill=as.factor(group),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()+scale_fill_discrete(name="Group")
+#ggsave("25x10x1000.jpeg", plot=last_plot(), width=150, height=110, units="mm", path ="C:/Users/delan/Documents/R/misogynistic_enclave_norms", scale = 1, dpi=300, limitsize=TRUE)
+
+#Plot the initial h values of initial group members
+qplot(initialgroups,initialh,fill=as.factor(initialgroups),data=agents,geom="blank",xlab = "Group", ylab = "Propensity to Harass")+geom_violin()+theme_classic()
+
+#Calculate overall h value differences between groups
+hanova <- anova(aov(h~as.factor(group),data=agents))
+
+#Calculate overall h value differences between the initial groups
+hanovainitial <- anova(aov(initialh~as.factor(initialgroups),data=agents))
+
+#Calculate the mean h in each group
+hmean<-tapply(agents$h,agents$group,function(x) mean(x))
+
+#Calculate the mean h of in the initial groups
+initialmean<-tapply(agents$initialh,agents$initialgroups,function(x) mean(x))
+
+#Calculate the variance of h in each group
+hvar<-tapply(agents$h,agents$group,function(x) var(x))
+
+#Calculate the variance of h in the initial groups
+initialhvar <- tapply(agents$initialh,agents$initialgroups,function(x) var(x))
+
+#set group levels as factor
+groups <- factor(agents$group)
+
+#Conduct a pairwise comparison of h levels in each group
+hpairwise <- pairwise.t.test(agents$h, groups, p.adj = "none")
+
+#need to graph rate of harassment, intervention, retaliation
